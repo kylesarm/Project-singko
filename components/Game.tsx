@@ -729,6 +729,8 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score, isMob
         }
     }, []);
 
+    const boss = enemies.find(e => e.isBoss);
+
     return (
         <div
             ref={gameAreaRef}
@@ -740,7 +742,15 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score, isMob
             onTouchCancel={isMobileControls ? handleTouchEnd : undefined}
         >
             <div className="absolute inset-0 bg-gradient-to-r from-gray-900/20 via-transparent to-gray-900/20 animate-slow-pan pointer-events-none" style={{ backgroundSize: '400% 100%' }} />
-            <HUD score={score} health={player.health} maxHealth={PLAYER_MAX_HEALTH} wave={wave} waveMessage={waveMessage} />
+            <HUD
+                score={score}
+                health={player.health}
+                maxHealth={PLAYER_MAX_HEALTH}
+                wave={wave}
+                waveMessage={waveMessage}
+                bossHealth={boss?.health}
+                bossMaxHealth={boss ? BOSS_MAX_HEALTH : undefined}
+            />
 
             {obstacles.map(obs => (
                 <div key={obs.id} className="absolute" style={{ top: obs.position.y - obs.size / 2, left: obs.position.x - obs.size / 2, width: obs.size, height: obs.size }}>

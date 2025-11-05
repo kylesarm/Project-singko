@@ -71,9 +71,11 @@ interface HUDProps {
   maxHealth: number;
   wave: number;
   waveMessage: string;
+  bossHealth?: number;
+  bossMaxHealth?: number;
 }
 
-export const HUD: React.FC<HUDProps> = ({ score, health, maxHealth, wave, waveMessage }) => {
+export const HUD: React.FC<HUDProps> = ({ score, health, maxHealth, wave, waveMessage, bossHealth, bossMaxHealth }) => {
   const healthPercentage = (health / maxHealth) * 100;
 
   return (
@@ -84,6 +86,22 @@ export const HUD: React.FC<HUDProps> = ({ score, health, maxHealth, wave, waveMe
       <div className="absolute top-4 right-4 text-white text-3xl font-bold" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.7)' }}>
         Wave: {wave}
       </div>
+
+      {/* Boss UI */}
+      {bossHealth && bossMaxHealth && bossHealth > 0 && (
+          <div className="absolute top-12 left-1/2 -translate-x-1/2 w-2/3 flex flex-col items-center z-20">
+              <h3 className="text-3xl font-black text-purple-400 uppercase tracking-widest" style={{ textShadow: '0 0 10px #8b5cf6' }}>
+                  Gartz the Destroyer
+              </h3>
+              <div className="w-full bg-gray-900 rounded-full h-5 border-2 border-purple-800 mt-2 shadow-lg">
+                  <div
+                      className="bg-gradient-to-r from-purple-500 to-purple-700 h-full rounded-full transition-all duration-300 ease-out"
+                      style={{ width: `${(bossHealth / bossMaxHealth) * 100}%` }}
+                  ></div>
+              </div>
+          </div>
+      )}
+
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-1/3">
         <div className="text-center mb-2 text-lg">HEALTH</div>
         <div className="w-full bg-gray-700 rounded-full h-6 border-2 border-gray-500">
@@ -94,7 +112,7 @@ export const HUD: React.FC<HUDProps> = ({ score, health, maxHealth, wave, waveMe
         </div>
       </div>
       {waveMessage && (
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 text-5xl font-black text-white uppercase animate-pulse" style={{ textShadow: '0 0 10px #dc2626' }}>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 text-5xl font-black text-white uppercase animate-pulse" style={{ textShadow: '0 0 10px #dc2626' }}>
             {waveMessage}
         </div>
       )}
