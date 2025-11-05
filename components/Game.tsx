@@ -52,9 +52,10 @@ interface GameProps {
   setGameState: (state: GameState) => void;
   setScore: React.Dispatch<React.SetStateAction<number>>;
   score: number;
+  isMobileControls: boolean;
 }
 
-export const Game: React.FC<GameProps> = ({ setGameState, setScore, score }) => {
+export const Game: React.FC<GameProps> = ({ setGameState, setScore, score, isMobileControls }) => {
     const [player, setPlayer] = useState<Tank>({
         id: 'player',
         position: { x: GAME_WIDTH / 2, y: GAME_HEIGHT / 2 },
@@ -74,7 +75,6 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score }) => 
     const [waveMessage, setWaveMessage] = useState('');
     const [activePowerUp, setActivePowerUp] = useState<{type: PowerUpType, timeoutId: number} | null>(null);
     const [isStartingWave, setIsStartingWave] = useState(false);
-    const [isMobileControls, setIsMobileControls] = useState(false);
 
     const keysPressed = useRef<{ [key: string]: boolean }>({});
     const mousePosition = useRef<Vector2D>({ x: 0, y: 0 });
@@ -734,13 +734,13 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score }) => 
             ref={gameAreaRef}
             className="relative cursor-crosshair overflow-hidden w-full h-full bg-black touch-none"
             style={{ boxShadow: 'inset 0 0 150px 20px rgba(0,0,0,0.6)' }}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            onTouchCancel={handleTouchEnd}
+            onTouchStart={isMobileControls ? handleTouchStart : undefined}
+            onTouchMove={isMobileControls ? handleTouchMove : undefined}
+            onTouchEnd={isMobileControls ? handleTouchEnd : undefined}
+            onTouchCancel={isMobileControls ? handleTouchEnd : undefined}
         >
             <div className="absolute inset-0 bg-gradient-to-r from-gray-900/20 via-transparent to-gray-900/20 animate-slow-pan pointer-events-none" style={{ backgroundSize: '400% 100%' }} />
-            <HUD score={score} health={player.health} maxHealth={PLAYER_MAX_HEALTH} wave={wave} waveMessage={waveMessage} isMobileControls={isMobileControls} onToggleMobileControls={() => setIsMobileControls(c => !c)} />
+            <HUD score={score} health={player.health} maxHealth={PLAYER_MAX_HEALTH} wave={wave} waveMessage={waveMessage} />
 
             {obstacles.map(obs => (
                 <div key={obs.id} className="absolute" style={{ top: obs.position.y - obs.size / 2, left: obs.position.x - obs.size / 2, width: obs.size, height: obs.size }}>

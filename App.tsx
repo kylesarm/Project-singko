@@ -10,6 +10,7 @@ const App: React.FC = () => {
     const [highScore, setHighScore] = useState(() => {
         return parseInt(localStorage.getItem('tankHighScore') || '0', 10);
     });
+    const [isMobileControls, setIsMobileControls] = useState(false);
 
     useEffect(() => {
         if (score > highScore) {
@@ -45,8 +46,13 @@ const App: React.FC = () => {
                 className="relative bg-black border-2 border-blue-400/50 rounded-lg shadow-2xl shadow-blue-500/20 overflow-hidden"
                 style={{width: GAME_WIDTH, height: GAME_HEIGHT}}
             >
-                {gameState === 'menu' && <MenuScreen onStartGame={startGame} highScore={highScore} />}
-                {gameState === 'playing' && <Game setGameState={endGame} setScore={setScore} score={score} />}
+                {gameState === 'menu' && <MenuScreen 
+                    onStartGame={startGame} 
+                    highScore={highScore} 
+                    isMobileControls={isMobileControls}
+                    onToggleMobileControls={() => setIsMobileControls(c => !c)}
+                />}
+                {gameState === 'playing' && <Game setGameState={endGame} setScore={setScore} score={score} isMobileControls={isMobileControls} />}
                 {gameState === 'gameOver' && <GameOverScreen score={score} onRestart={restartGame} />}
             </div>
             <div className="absolute bottom-2 right-4 text-gray-500 text-xs font-mono opacity-75 z-50 pointer-events-none">
