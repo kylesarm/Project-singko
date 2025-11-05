@@ -1,0 +1,5 @@
+{
+  "name": "Tank Battle Arena",
+  "description": "An intense 2D top-down tank battle game inspired by a gritty, atmospheric image. Control your tank, survive waves of enemies, and aim for the high score in a foggy, war-torn arena.",
+  "requestFramePermissions": []
+}

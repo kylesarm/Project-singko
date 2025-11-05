@@ -1,0 +1,83 @@
+import React from 'react';
+import { GAME_WIDTH, GAME_HEIGHT } from '../constants';
+
+interface MenuScreenProps {
+  onStartGame: () => void;
+  highScore: number;
+}
+
+export const MenuScreen: React.FC<MenuScreenProps> = ({ onStartGame, highScore }) => (
+    <div 
+        className="absolute inset-0 flex flex-col items-center justify-center text-center"
+    >
+        <h1 className="text-8xl font-black text-white uppercase tracking-widest" style={{ textShadow: '0 0 15px #dc2626' }}>
+            TANK
+        </h1>
+        <p className="text-gray-300 mt-4 mb-8 text-lg">in a Moon!</p>
+        <button
+            onClick={onStartGame}
+            className="bg-red-600 text-white font-bold py-4 px-12 rounded-md uppercase text-xl tracking-wider hover:bg-red-700 transition-all duration-300 transform hover:scale-105 shadow-lg shadow-red-600/50"
+        >
+            Start Game
+        </button>
+        <div className="mt-12 text-center">
+            <p className="text-gray-400 text-md">High Score: {highScore}</p>
+            <p className="text-gray-500 mt-2 text-sm">Created By: Kyle Anthony Sarmiento</p>
+        </div>
+    </div>
+);
+
+interface GameOverScreenProps {
+  score: number;
+  onRestart: () => void;
+}
+
+export const GameOverScreen: React.FC<GameOverScreenProps> = ({ score, onRestart }) => (
+  <div className="absolute inset-0 bg-black bg-opacity-70 flex flex-col items-center justify-center text-center z-50 backdrop-blur-sm">
+    <h2 className="text-7xl font-black text-red-500 uppercase">Game Over</h2>
+    <p className="text-gray-300 mt-4 mb-8 text-2xl">Your Score: {score}</p>
+    <button
+      onClick={onRestart}
+      className="bg-gray-200 text-gray-900 font-bold py-4 px-12 rounded-md uppercase text-xl tracking-wider hover:bg-white transition-all duration-300 transform hover:scale-105"
+    >
+      Restart
+    </button>
+  </div>
+);
+
+interface HUDProps {
+  score: number;
+  health: number;
+  maxHealth: number;
+  wave: number;
+  waveMessage: string;
+}
+
+export const HUD: React.FC<HUDProps> = ({ score, health, maxHealth, wave, waveMessage }) => {
+  const healthPercentage = (health / maxHealth) * 100;
+
+  return (
+    <>
+      <div className="absolute top-4 left-4 text-white text-3xl font-bold" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.7)' }}>
+        Score: {score}
+      </div>
+      <div className="absolute top-4 right-4 text-white text-3xl font-bold" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.7)' }}>
+        Wave: {wave}
+      </div>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-1/3">
+        <div className="text-center mb-2 text-lg">HEALTH</div>
+        <div className="w-full bg-gray-700 rounded-full h-6 border-2 border-gray-500">
+          <div
+            className="bg-gradient-to-r from-red-500 to-red-700 h-full rounded-full transition-all duration-300 ease-out"
+            style={{ width: `${healthPercentage}%` }}
+          ></div>
+        </div>
+      </div>
+      {waveMessage && (
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 text-5xl font-black text-white uppercase animate-pulse" style={{ textShadow: '0 0 10px #dc2626' }}>
+            {waveMessage}
+        </div>
+      )}
+    </>
+  );
+};
