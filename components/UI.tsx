@@ -51,9 +51,11 @@ interface HUDProps {
   maxHealth: number;
   wave: number;
   waveMessage: string;
+  isMobileControls: boolean;
+  onToggleMobileControls: () => void;
 }
 
-export const HUD: React.FC<HUDProps> = ({ score, health, maxHealth, wave, waveMessage }) => {
+export const HUD: React.FC<HUDProps> = ({ score, health, maxHealth, wave, waveMessage, isMobileControls, onToggleMobileControls }) => {
   const healthPercentage = (health / maxHealth) * 100;
 
   return (
@@ -78,6 +80,24 @@ export const HUD: React.FC<HUDProps> = ({ score, health, maxHealth, wave, waveMe
             {waveMessage}
         </div>
       )}
+       <div className="absolute bottom-4 right-4 flex items-center gap-2 z-10 select-none">
+            <input 
+                id="mobile-controls-toggle"
+                type="checkbox" 
+                checked={isMobileControls} 
+                onChange={onToggleMobileControls}
+                className="appearance-none h-6 w-6 border-2 border-gray-500 rounded-md bg-gray-800 checked:bg-red-600 checked:border-red-400 focus:outline-none transition duration-200 cursor-pointer"
+            />
+            <label htmlFor="mobile-controls-toggle" className="text-white text-sm cursor-pointer">Mobile Controls</label>
+        </div>
+        <style>{`
+            input[type="checkbox"]:checked {
+                background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e");
+                background-size: 100% 100%;
+                background-position: center;
+                background-repeat: no-repeat;
+            }
+        `}</style>
     </>
   );
 };

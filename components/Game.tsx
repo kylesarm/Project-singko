@@ -36,6 +36,17 @@ const generateObstacles = (count: number): Obstacle[] => {
     return obstacles;
 };
 
+// --- JOYSTICK TYPES ---
+interface JoystickState {
+    active: boolean;
+    angle: number;
+    magnitude: number;
+    position: Vector2D; // Current position of the stick for rendering
+}
+
+const JOYSTICK_RADIUS = 60;
+const STICK_RADIUS = 30;
+
 // --- GAME COMPONENT ---
 interface GameProps {
   setGameState: (state: GameState) => void;
@@ -63,6 +74,7 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score }) => 
     const [waveMessage, setWaveMessage] = useState('');
     const [activePowerUp, setActivePowerUp] = useState<{type: PowerUpType, timeoutId: number} | null>(null);
     const [isStartingWave, setIsStartingWave] = useState(false);
+    const [isMobileControls, setIsMobileControls] = useState(false);
 
     const keysPressed = useRef<{ [key: string]: boolean }>({});
     const mousePosition = useRef<Vector2D>({ x: 0, y: 0 });
@@ -70,6 +82,13 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score }) => 
     const gameLoopRef = useRef<number | null>(null);
     const lastBossPowerUpSpawnTime = useRef<number>(0);
     
+    // Joystick state
+    const moveJoystickBase = useRef({ x: 120, y: GAME_HEIGHT - 120 });
+    const aimJoystickBase = useRef({ x: GAME_WIDTH - 120, y: GAME_HEIGHT - 120 });
+    const [moveJoystick, setMoveJoystick] = useState<JoystickState>(() => ({ active: false, angle: 0, magnitude: 0, position: moveJoystickBase.current }));
+    const [aimJoystick, setAimJoystick] = useState<JoystickState>(() => ({ active: false, angle: 0, magnitude: 0, position: aimJoystickBase.current }));
+    const activeTouches = useRef<{ [touchId: number]: 'move' | 'aim' }>({});
+
     // --- AUDIO ---
     const audioRefs = useRef({
         shoot: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-short-laser-gun-shot-1670.mp3'),
@@ -275,18 +294,30 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score }) => 
         setPlayer(p => {
             if (p.health <= 0) return p;
             let newRotation = p.rotation;
-            if (keysPressed.current['a'] || keysPressed.current['ArrowLeft']) newRotation -= PLAYER_TURN_SPEED;
-            if (keysPressed.current['d'] || keysPressed.current['ArrowRight']) newRotation += PLAYER_TURN_SPEED;
-
             let newPos = { ...p.position };
             let velocity = {x: 0, y: 0};
-            if (keysPressed.current['w'] || keysPressed.current['ArrowUp']) {
-                velocity.x += Math.cos(newRotation) * PLAYER_SPEED;
-                velocity.y += Math.sin(newRotation) * PLAYER_SPEED;
-            }
-            if (keysPressed.current['s'] || keysPressed.current['ArrowDown']) {
-                velocity.x -= Math.cos(newRotation) * PLAYER_SPEED * 0.7;
-                velocity.y -= Math.sin(newRotation) * PLAYER_SPEED * 0.7;
+
+            if (isMobileControls && moveJoystick.active) {
+                const rotDiff = moveJoystick.angle - newRotation;
+                const normalizedRotDiff = Math.atan2(Math.sin(rotDiff), Math.cos(rotDiff));
+                if (Math.abs(normalizedRotDiff) > PLAYER_TURN_SPEED) {
+                    newRotation += Math.sign(normalizedRotDiff) * PLAYER_TURN_SPEED;
+                } else {
+                    newRotation = moveJoystick.angle;
+                }
+                velocity.x = Math.cos(newRotation) * PLAYER_SPEED * moveJoystick.magnitude;
+                velocity.y = Math.sin(newRotation) * PLAYER_SPEED * moveJoystick.magnitude;
+            } else {
+                if (keysPressed.current['a'] || keysPressed.current['ArrowLeft']) newRotation -= PLAYER_TURN_SPEED;
+                if (keysPressed.current['d'] || keysPressed.current['ArrowRight']) newRotation += PLAYER_TURN_SPEED;
+                if (keysPressed.current['w'] || keysPressed.current['ArrowUp']) {
+                    velocity.x += Math.cos(newRotation) * PLAYER_SPEED;
+                    velocity.y += Math.sin(newRotation) * PLAYER_SPEED;
+                }
+                if (keysPressed.current['s'] || keysPressed.current['ArrowDown']) {
+                    velocity.x -= Math.cos(newRotation) * PLAYER_SPEED * 0.7;
+                    velocity.y -= Math.sin(newRotation) * PLAYER_SPEED * 0.7;
+                }
             }
             newPos.x += velocity.x;
             newPos.y += velocity.y;
@@ -300,9 +331,14 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score }) => 
             
             newPos.x = Math.max(p.size / 2, Math.min(GAME_WIDTH - p.size / 2, newPos.x));
             newPos.y = Math.max(p.size / 2, Math.min(GAME_HEIGHT - p.size / 2, newPos.y));
-
-            const rect = gameAreaRef.current?.getBoundingClientRect();
-            const turretRotation = rect ? Math.atan2(mousePosition.current.y - (p.position.y), mousePosition.current.x - (p.position.x)) : p.turretRotation;
+            
+            let turretRotation = p.turretRotation;
+            if (isMobileControls && aimJoystick.active) {
+                turretRotation = aimJoystick.angle;
+            } else if (!isMobileControls) {
+                const rect = gameAreaRef.current?.getBoundingClientRect();
+                if(rect) turretRotation = Math.atan2(mousePosition.current.y - (p.position.y), mousePosition.current.x - (p.position.x));
+            }
             
             return { ...p, position: newPos, rotation: newRotation, turretRotation };
         });
@@ -384,6 +420,29 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score }) => 
 
             return { ...enemy, position: newPos, turretRotation: angleToPlayer, rotation: newRotation };
         }));
+        
+        // 2.5. Player mobile firing
+        if (isMobileControls && aimJoystick.active && aimJoystick.magnitude > 0.6) {
+             setPlayer(p => {
+                if(p.health <= 0) return p;
+                const fireRate = activePowerUp?.type === 'rapidFire' ? PLAYER_FIRE_RATE * RAPID_FIRE_MULTIPLIER : PLAYER_FIRE_RATE;
+                if(now - p.lastShotTime > fireRate) {
+                     if (activePowerUp?.type === 'multiShot') {
+                        const totalAngle = MULTI_SHOT_SPREAD_ANGLE;
+                        const angleStep = totalAngle / (MULTI_SHOT_COUNT - 1);
+                        const startAngle = p.turretRotation - totalAngle / 2;
+                        for (let i = 0; i < MULTI_SHOT_COUNT; i++) {
+                            fireProjectile(p, startAngle + i * angleStep);
+                        }
+                    } else {
+                        fireProjectile(p);
+                    }
+                     return {...p, lastShotTime: now};
+                }
+                return p;
+             });
+        }
+
 
         // 3. Update Projectiles & Collisions
         setProjectiles(currentProjectiles => {
@@ -543,7 +602,7 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score }) => 
         setEnemies(es => es.filter(e => e.health > 0));
         
         gameLoopRef.current = requestAnimationFrame(gameLoop);
-    }, [player, enemies, obstacles, setGameState, setScore, activePowerUp, playSound, createParticleExplosion, fireProjectile, startNewWave, wave]);
+    }, [player, enemies, obstacles, setGameState, setScore, activePowerUp, playSound, createParticleExplosion, fireProjectile, startNewWave, wave, isMobileControls, moveJoystick, aimJoystick]);
     
     // --- EFFECTS & EVENT HANDLERS ---
     useEffect(() => {
@@ -561,12 +620,14 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score }) => 
         const handleKeyDown = (e: KeyboardEvent) => { keysPressed.current[e.key.toLowerCase()] = true; };
         const handleKeyUp = (e: KeyboardEvent) => { keysPressed.current[e.key.toLowerCase()] = false; };
         const handleMouseMove = (e: MouseEvent) => {
+            if (isMobileControls) return;
             if (gameAreaRef.current) {
                 const rect = gameAreaRef.current.getBoundingClientRect();
                 mousePosition.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
             }
         };
         const handleMouseDown = (e: MouseEvent) => {
+            if (isMobileControls) return;
             if (e.button === 0) {
                  setPlayer(p => {
                     if(p.health <= 0) return p;
@@ -603,17 +664,83 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score }) => 
             if(gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
             if(activePowerUp?.timeoutId) clearTimeout(activePowerUp.timeoutId);
         };
-    }, [gameLoop, activePowerUp, fireProjectile]);
+    }, [gameLoop, activePowerUp, fireProjectile, isMobileControls]);
 
+    const updateJoystick = useCallback((touch: Touch, role: 'move' | 'aim') => {
+        const rect = gameAreaRef.current?.getBoundingClientRect();
+        if(!rect) return;
+
+        const basePosition = role === 'move' ? moveJoystickBase.current : aimJoystickBase.current;
+        const setJoystick = role === 'move' ? setMoveJoystick : setAimJoystick;
+        
+        const touchX = touch.clientX - rect.left;
+        const touchY = touch.clientY - rect.top;
+
+        const dx = touchX - basePosition.x;
+        const dy = touchY - basePosition.y;
+        const dist = Math.hypot(dx, dy);
+        const angle = Math.atan2(dy, dx);
+        
+        const clampedDist = Math.min(dist, JOYSTICK_RADIUS);
+        const magnitude = clampedDist / JOYSTICK_RADIUS;
+
+        const stickPosition = {
+            x: basePosition.x + Math.cos(angle) * clampedDist,
+            y: basePosition.y + Math.sin(angle) * clampedDist,
+        };
+        
+        setJoystick({ active: true, angle, magnitude, position: stickPosition });
+    }, []);
+
+    const handleTouchStart = useCallback((e: React.TouchEvent) => {
+        e.preventDefault();
+        // FIX: Explicitly cast `touch` to type `Touch` to resolve properties like `clientX` and `identifier`.
+        for (const touch of Array.from(e.changedTouches) as Touch[]) {
+            const touchX = touch.clientX;
+            const role = touchX < window.innerWidth / 2 ? 'move' : 'aim';
+            if (!Object.values(activeTouches.current).includes(role)) {
+                activeTouches.current[touch.identifier] = role;
+                updateJoystick(touch, role);
+            }
+        }
+    }, [updateJoystick]);
+
+    const handleTouchMove = useCallback((e: React.TouchEvent) => {
+        e.preventDefault();
+        // FIX: Explicitly cast `touch` to type `Touch` to resolve properties like `identifier`.
+        for (const touch of Array.from(e.changedTouches) as Touch[]) {
+            const role = activeTouches.current[touch.identifier];
+            if (role) {
+                updateJoystick(touch, role);
+            }
+        }
+    }, [updateJoystick]);
+
+    const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+        e.preventDefault();
+        // FIX: Explicitly cast `touch` to type `Touch` to resolve properties like `identifier`.
+        for (const touch of Array.from(e.changedTouches) as Touch[]) {
+            const role = activeTouches.current[touch.identifier];
+            if (role) {
+                if(role === 'move') setMoveJoystick({ active: false, angle: 0, magnitude: 0, position: moveJoystickBase.current });
+                if(role === 'aim') setAimJoystick({ active: false, angle: 0, magnitude: 0, position: aimJoystickBase.current });
+                delete activeTouches.current[touch.identifier];
+            }
+        }
+    }, []);
 
     return (
         <div
             ref={gameAreaRef}
-            className="relative cursor-crosshair overflow-hidden w-full h-full bg-black"
+            className="relative cursor-crosshair overflow-hidden w-full h-full bg-black touch-none"
             style={{ boxShadow: 'inset 0 0 150px 20px rgba(0,0,0,0.6)' }}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onTouchCancel={handleTouchEnd}
         >
             <div className="absolute inset-0 bg-gradient-to-r from-gray-900/20 via-transparent to-gray-900/20 animate-slow-pan pointer-events-none" style={{ backgroundSize: '400% 100%' }} />
-            <HUD score={score} health={player.health} maxHealth={PLAYER_MAX_HEALTH} wave={wave} waveMessage={waveMessage} />
+            <HUD score={score} health={player.health} maxHealth={PLAYER_MAX_HEALTH} wave={wave} waveMessage={waveMessage} isMobileControls={isMobileControls} onToggleMobileControls={() => setIsMobileControls(c => !c)} />
 
             {obstacles.map(obs => (
                 <div key={obs.id} className="absolute" style={{ top: obs.position.y - obs.size / 2, left: obs.position.x - obs.size / 2, width: obs.size, height: obs.size }}>
@@ -658,6 +785,19 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score }) => 
                     }} />
                 );
             })}
+
+            {isMobileControls && (
+                <>
+                    {/* Move Joystick */}
+                    <div className="absolute rounded-full bg-gray-500/30" style={{ left: moveJoystickBase.current.x - JOYSTICK_RADIUS, top: moveJoystickBase.current.y - JOYSTICK_RADIUS, width: JOYSTICK_RADIUS * 2, height: JOYSTICK_RADIUS * 2 }} />
+                    <div className="absolute rounded-full bg-gray-400/50" style={{ left: moveJoystick.position.x - STICK_RADIUS, top: moveJoystick.position.y - STICK_RADIUS, width: STICK_RADIUS * 2, height: STICK_RADIUS * 2, pointerEvents: 'none' }} />
+                    
+                    {/* Aim Joystick */}
+                    <div className="absolute rounded-full bg-gray-500/30" style={{ left: aimJoystickBase.current.x - JOYSTICK_RADIUS, top: aimJoystickBase.current.y - JOYSTICK_RADIUS, width: JOYSTICK_RADIUS * 2, height: JOYSTICK_RADIUS * 2 }} />
+                    <div className="absolute rounded-full bg-gray-400/50" style={{ left: aimJoystick.position.x - STICK_RADIUS, top: aimJoystick.position.y - STICK_RADIUS, width: STICK_RADIUS * 2, height: STICK_RADIUS * 2, pointerEvents: 'none' }} />
+                </>
+            )}
+
             <style>{`
                 @keyframes slow-pan {
                     0% { background-position: 0% 50%; }
@@ -666,6 +806,9 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score }) => 
                 }
                 .animate-slow-pan {
                     animation: slow-pan 30s ease-in-out infinite;
+                }
+                .touch-none {
+                    touch-action: none;
                 }
             `}</style>
         </div>
