@@ -1,9 +1,6 @@
 import React from 'react';
 import { PowerUpType } from './types';
 
-export const GAME_WIDTH = 1200;
-export const GAME_HEIGHT = 800;
-
 export const PLAYER_SIZE = 40;
 export const ENEMY_SIZE = 40;
 export const OBSTACLE_SIZE_MIN = 30;

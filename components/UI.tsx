@@ -1,5 +1,4 @@
 import React from 'react';
-import { GAME_WIDTH, GAME_HEIGHT } from '../constants';
 
 interface MenuScreenProps {
   onStartGame: () => void;

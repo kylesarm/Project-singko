@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { GameState, Tank, Projectile, Obstacle, Vector2D, PowerUp, PowerUpType, Particle } from '../types';
 import {
-    GAME_WIDTH, GAME_HEIGHT, PLAYER_SIZE, ENEMY_SIZE, OBSTACLE_SIZE_MIN, OBSTACLE_SIZE_MAX, PLAYER_SPEED, ENEMY_SPEED,
+    PLAYER_SIZE, ENEMY_SIZE, OBSTACLE_SIZE_MIN, OBSTACLE_SIZE_MAX, PLAYER_SPEED, ENEMY_SPEED,
     PLAYER_TURN_SPEED, PROJECTILE_SIZE, PROJECTILE_SPEED, PLAYER_FIRE_RATE, ENEMY_FIRE_RATE, PROJECTILE_DAMAGE, PLAYER_MAX_HEALTH, ENEMY_MAX_HEALTH, WAVE_START_DELAY, ENEMY_SPAWN_PER_WAVE, TANK_COLORS, ENEMY_AIM_INACCURACY, ENEMY_TURN_SPEED, POWERUP_SIZE, POWERUP_SPAWN_CHANCE, RAPID_FIRE_DURATION, RAPID_FIRE_MULTIPLIER, SHIELD_HEALTH, TankIcon, HealthBar, PowerUpIcon,
     FIRST_BOSS_WAVE_NUMBER, BOSS_SIZE, BOSS_MAX_HEALTH, BOSS_SPEED, BOSS_TURN_SPEED, BOSS_FIRE_RATE, BOSS_SPREAD_SHOT_COUNT, BOSS_SPREAD_ANGLE, MULTI_SHOT_DURATION, MULTI_SHOT_COUNT, MULTI_SHOT_SPREAD_ANGLE, BOSS_POWERUP_SPAWN_INTERVAL,
     SECOND_BOSS_WAVE_NUMBER, SECOND_BOSS_SIZE, SECOND_BOSS_MAX_HEALTH, SECOND_BOSS_SPEED, SECOND_BOSS_TURN_SPEED, SECOND_BOSS_FIRE_RATE
@@ -14,21 +14,21 @@ const isColliding = (obj1: {position: Vector2D, size: number}, obj2: {position: 
     return dist < (obj1.size / 2 + obj2.size / 2);
 };
 
-const generateObstacles = (count: number): Obstacle[] => {
+const generateObstacles = (count: number, gameWidth: number, gameHeight: number): Obstacle[] => {
     const obstacles: Obstacle[] = [];
     while (obstacles.length < count) {
         const newObstacle = {
             id: `obs-${obstacles.length}-${Date.now()}`,
             position: {
-                x: Math.random() * (GAME_WIDTH - 200) + 100,
-                y: Math.random() * (GAME_HEIGHT - 200) + 100,
+                x: Math.random() * (gameWidth - 200) + 100,
+                y: Math.random() * (gameHeight - 200) + 100,
             },
             size: OBSTACLE_SIZE_MIN + Math.random() * (OBSTACLE_SIZE_MAX - OBSTACLE_SIZE_MIN),
             rotation: Math.random() * Math.PI * 2,
             type: 'rock' as const
         };
         // Ensure obstacles don't overlap with each other or the center
-        const centerDist = Math.hypot(newObstacle.position.x - GAME_WIDTH / 2, newObstacle.position.y - GAME_HEIGHT / 2);
+        const centerDist = Math.hypot(newObstacle.position.x - gameWidth / 2, newObstacle.position.y - gameHeight / 2);
         if (centerDist < 200) continue;
         if (!obstacles.some(obs => isColliding(newObstacle, obs))) {
             obstacles.push(newObstacle);
@@ -54,12 +54,14 @@ interface GameProps {
   setScore: React.Dispatch<React.SetStateAction<number>>;
   score: number;
   isMobileControls: boolean;
+  gameWidth: number;
+  gameHeight: number;
 }
 
-export const Game: React.FC<GameProps> = ({ setGameState, setScore, score, isMobileControls }) => {
+export const Game: React.FC<GameProps> = ({ setGameState, setScore, score, isMobileControls, gameWidth, gameHeight }) => {
     const [player, setPlayer] = useState<Tank>({
         id: 'player',
-        position: { x: GAME_WIDTH / 2, y: GAME_HEIGHT / 2 },
+        position: { x: gameWidth / 2, y: gameHeight / 2 },
         size: PLAYER_SIZE,
         rotation: -Math.PI / 2,
         turretRotation: -Math.PI / 2,
@@ -71,7 +73,7 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score, isMob
     const [projectiles, setProjectiles] = useState<Projectile[]>([]);
     const [particles, setParticles] = useState<Particle[]>([]);
     const [powerUps, setPowerUps] = useState<PowerUp[]>([]);
-    const [obstacles] = useState<Obstacle[]>(() => generateObstacles(12));
+    const [obstacles] = useState<Obstacle[]>(() => generateObstacles(12, gameWidth, gameHeight));
     const [wave, setWave] = useState(0);
     const [waveMessage, setWaveMessage] = useState('');
     const [activePowerUp, setActivePowerUp] = useState<{type: PowerUpType, timeoutId: number} | null>(null);
@@ -84,11 +86,20 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score, isMob
     const lastBossPowerUpSpawnTime = useRef<number>(0);
     
     // Joystick state
-    const moveJoystickBase = useRef({ x: 120, y: GAME_HEIGHT - 120 });
-    const aimJoystickBase = useRef({ x: GAME_WIDTH - 120, y: GAME_HEIGHT - 120 });
-    const [moveJoystick, setMoveJoystick] = useState<JoystickState>(() => ({ active: false, angle: 0, magnitude: 0, position: moveJoystickBase.current }));
-    const [aimJoystick, setAimJoystick] = useState<JoystickState>(() => ({ active: false, angle: 0, magnitude: 0, position: aimJoystickBase.current }));
+    const moveJoystickBase = useRef({ x: 120, y: gameHeight - 120 });
+    const aimJoystickBase = useRef({ x: gameWidth - 120, y: gameHeight - 120 });
+    const [moveJoystick, setMoveJoystick] = useState<JoystickState>(() => ({ active: false, angle: 0, magnitude: 0, position: { x: 120, y: gameHeight - 120 } }));
+    const [aimJoystick, setAimJoystick] = useState<JoystickState>(() => ({ active: false, angle: 0, magnitude: 0, position: { x: gameWidth - 120, y: gameHeight - 120 } }));
     const activeTouches = useRef<{ [touchId: number]: 'move' | 'aim' }>({});
+    
+    useEffect(() => {
+        const newMoveBase = { x: 120, y: gameHeight - 120 };
+        const newAimBase = { x: gameWidth - 120, y: gameHeight - 120 };
+        moveJoystickBase.current = newMoveBase;
+        aimJoystickBase.current = newAimBase;
+        if (!moveJoystick.active) setMoveJoystick(j => ({ ...j, position: newMoveBase }));
+        if (!aimJoystick.active) setAimJoystick(j => ({ ...j, position: newAimBase }));
+    }, [gameWidth, gameHeight, moveJoystick.active, aimJoystick.active]);
 
     // --- AUDIO ---
     const audioRefs = useRef({
@@ -211,20 +222,20 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score, isMob
                     const side = Math.floor(Math.random() * 4);
                     switch (side) {
                         case 0: // Top
-                            x = Math.random() * (GAME_WIDTH - margin * 2) + margin;
+                            x = Math.random() * (gameWidth - margin * 2) + margin;
                             y = margin;
                             break;
                         case 1: // Bottom
-                            x = Math.random() * (GAME_WIDTH - margin * 2) + margin;
-                            y = GAME_HEIGHT - margin;
+                            x = Math.random() * (gameWidth - margin * 2) + margin;
+                            y = gameHeight - margin;
                             break;
                         case 2: // Left
                             x = margin;
-                            y = Math.random() * (GAME_HEIGHT - margin * 2) + margin;
+                            y = Math.random() * (gameHeight - margin * 2) + margin;
                             break;
                         case 3: // Right
-                            x = GAME_WIDTH - margin;
-                            y = Math.random() * (GAME_HEIGHT - margin * 2) + margin;
+                            x = gameWidth - margin;
+                            y = Math.random() * (gameHeight - margin * 2) + margin;
                             break;
                     }
                     const tempPos = { x, y };
@@ -250,14 +261,14 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score, isMob
             }
             return [...currentEnemies, ...newEnemies];
         });
-    }, [obstacles]);
+    }, [obstacles, gameWidth, gameHeight]);
 
     const spawnBoss = useCallback((waveNumber: number) => {
         let boss: Tank;
         if (waveNumber === FIRST_BOSS_WAVE_NUMBER) {
             boss = {
                 id: 'boss-wave-6',
-                position: { x: GAME_WIDTH / 2, y: BOSS_SIZE },
+                position: { x: gameWidth / 2, y: BOSS_SIZE },
                 size: BOSS_SIZE,
                 rotation: Math.PI / 2,
                 turretRotation: Math.PI / 2,
@@ -269,7 +280,7 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score, isMob
         } else if (waveNumber === SECOND_BOSS_WAVE_NUMBER) {
             boss = {
                 id: 'boss-wave-12',
-                position: { x: GAME_WIDTH / 2, y: SECOND_BOSS_SIZE },
+                position: { x: gameWidth / 2, y: SECOND_BOSS_SIZE },
                 size: SECOND_BOSS_SIZE,
                 rotation: Math.PI / 2,
                 turretRotation: Math.PI / 2,
@@ -282,7 +293,7 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score, isMob
             return;
         }
         setEnemies([boss]);
-    }, []);
+    }, [gameWidth]);
 
     const startNewWave = useCallback(() => {
         setIsStartingWave(true);
@@ -347,8 +358,8 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score, isMob
             
             if (collision) newPos = p.position;
             
-            newPos.x = Math.max(p.size / 2, Math.min(GAME_WIDTH - p.size / 2, newPos.x));
-            newPos.y = Math.max(p.size / 2, Math.min(GAME_HEIGHT - p.size / 2, newPos.y));
+            newPos.x = Math.max(p.size / 2, Math.min(gameWidth - p.size / 2, newPos.x));
+            newPos.y = Math.max(p.size / 2, Math.min(gameHeight - p.size / 2, newPos.y));
             
             let turretRotation = p.turretRotation;
             if (isMobileControls && aimJoystick.active) {
@@ -381,8 +392,8 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score, isMob
             const nextX = newPos.x + Math.cos(newRotation) * speed;
             const nextY = newPos.y + Math.sin(newRotation) * speed;
 
-            if (nextX < enemy.size / 2 || nextX > GAME_WIDTH - enemy.size / 2 ||
-                nextY < enemy.size / 2 || nextY > GAME_HEIGHT - enemy.size / 2) {
+            if (nextX < enemy.size / 2 || nextX > gameWidth - enemy.size / 2 ||
+                nextY < enemy.size / 2 || nextY > gameHeight - enemy.size / 2) {
                 isStuck = true;
             }
 
@@ -477,7 +488,7 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score, isMob
                 proj.position.x += proj.velocity.x;
                 proj.position.y += proj.velocity.y;
 
-                if (proj.position.x < 0 || proj.position.x > GAME_WIDTH || proj.position.y < 0 || proj.position.y > GAME_HEIGHT) {
+                if (proj.position.x < 0 || proj.position.x > gameWidth || proj.position.y < 0 || proj.position.y > gameHeight) {
                     destroyedProjectiles.add(proj.id);
                     continue;
                 }
@@ -595,8 +606,8 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score, isMob
                 while(position === null && attempts < 50) {
                     attempts++;
                     const tempPos = {
-                        x: Math.random() * (GAME_WIDTH - 200) + 100,
-                        y: Math.random() * (GAME_HEIGHT - 200) + 100,
+                        x: Math.random() * (gameWidth - 200) + 100,
+                        y: Math.random() * (gameHeight - 200) + 100,
                     };
 
                     const objectsToAvoid = [...obstacles, player, ...enemies];
@@ -626,7 +637,7 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score, isMob
         setEnemies(es => es.filter(e => e.health > 0));
         
         gameLoopRef.current = requestAnimationFrame(gameLoop);
-    }, [player, enemies, obstacles, setGameState, setScore, activePowerUp, playSound, createParticleExplosion, fireProjectile, startNewWave, wave, isMobileControls, moveJoystick, aimJoystick]);
+    }, [player, enemies, obstacles, setGameState, setScore, activePowerUp, playSound, createParticleExplosion, fireProjectile, startNewWave, wave, isMobileControls, moveJoystick, aimJoystick, gameWidth, gameHeight]);
     
     // --- EFFECTS & EVENT HANDLERS ---
     useEffect(() => {
