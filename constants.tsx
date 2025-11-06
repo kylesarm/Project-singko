@@ -38,7 +38,7 @@ export const MULTI_SHOT_COUNT = 5;
 export const MULTI_SHOT_SPREAD_ANGLE = Math.PI / 8; // 22.5 degrees total spread
 
 // Boss Constants
-export const BOSS_WAVE_NUMBER = 6;
+export const FIRST_BOSS_WAVE_NUMBER = 6;
 export const BOSS_SIZE = 80;
 export const BOSS_MAX_HEALTH = 1000;
 export const BOSS_SPEED = 0.8;
@@ -48,6 +48,14 @@ export const BOSS_SPREAD_SHOT_COUNT = 8;
 export const BOSS_SPREAD_ANGLE = Math.PI / 2; // 90 degree spread
 export const BOSS_POWERUP_SPAWN_INTERVAL = 15000; // 15 seconds
 
+// Second Boss Constants
+export const SECOND_BOSS_WAVE_NUMBER = 12;
+export const SECOND_BOSS_SIZE = 75;
+export const SECOND_BOSS_MAX_HEALTH = 1500;
+export const SECOND_BOSS_SPEED = 0.6; // Slower as requested
+export const SECOND_BOSS_TURN_SPEED = 0.02;
+export const SECOND_BOSS_FIRE_RATE = 250; // Rapid fire as requested
+
 export const TANK_COLORS = {
     playerBody: '#c0c0c0',
     playerTurret: '#a0a0a0',
@@ -55,6 +63,8 @@ export const TANK_COLORS = {
     enemyTurret: '#4a4a4a',
     bossBody: '#4a044e',
     bossTurret: '#250227',
+    secondBossBody: '#6d28d9',
+    secondBossTurret: '#4c1d95',
     dead: '#2a2a2a',
 };
 

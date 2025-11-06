@@ -3,7 +3,8 @@ import type { GameState, Tank, Projectile, Obstacle, Vector2D, PowerUp, PowerUpT
 import {
     GAME_WIDTH, GAME_HEIGHT, PLAYER_SIZE, ENEMY_SIZE, OBSTACLE_SIZE_MIN, OBSTACLE_SIZE_MAX, PLAYER_SPEED, ENEMY_SPEED,
     PLAYER_TURN_SPEED, PROJECTILE_SIZE, PROJECTILE_SPEED, PLAYER_FIRE_RATE, ENEMY_FIRE_RATE, PROJECTILE_DAMAGE, PLAYER_MAX_HEALTH, ENEMY_MAX_HEALTH, WAVE_START_DELAY, ENEMY_SPAWN_PER_WAVE, TANK_COLORS, ENEMY_AIM_INACCURACY, ENEMY_TURN_SPEED, POWERUP_SIZE, POWERUP_SPAWN_CHANCE, RAPID_FIRE_DURATION, RAPID_FIRE_MULTIPLIER, SHIELD_HEALTH, TankIcon, HealthBar, PowerUpIcon,
-    BOSS_WAVE_NUMBER, BOSS_SIZE, BOSS_MAX_HEALTH, BOSS_SPEED, BOSS_TURN_SPEED, BOSS_FIRE_RATE, BOSS_SPREAD_SHOT_COUNT, BOSS_SPREAD_ANGLE, MULTI_SHOT_DURATION, MULTI_SHOT_COUNT, MULTI_SHOT_SPREAD_ANGLE, BOSS_POWERUP_SPAWN_INTERVAL
+    FIRST_BOSS_WAVE_NUMBER, BOSS_SIZE, BOSS_MAX_HEALTH, BOSS_SPEED, BOSS_TURN_SPEED, BOSS_FIRE_RATE, BOSS_SPREAD_SHOT_COUNT, BOSS_SPREAD_ANGLE, MULTI_SHOT_DURATION, MULTI_SHOT_COUNT, MULTI_SHOT_SPREAD_ANGLE, BOSS_POWERUP_SPAWN_INTERVAL,
+    SECOND_BOSS_WAVE_NUMBER, SECOND_BOSS_SIZE, SECOND_BOSS_MAX_HEALTH, SECOND_BOSS_SPEED, SECOND_BOSS_TURN_SPEED, SECOND_BOSS_FIRE_RATE
 } from '../constants';
 import { HUD } from './UI';
 
@@ -251,18 +252,35 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score, isMob
         });
     }, [obstacles]);
 
-    const spawnBoss = useCallback(() => {
-        const boss: Tank = {
-            id: 'boss-wave-6',
-            position: { x: GAME_WIDTH / 2, y: BOSS_SIZE },
-            size: BOSS_SIZE,
-            rotation: Math.PI / 2,
-            turretRotation: Math.PI / 2,
-            health: BOSS_MAX_HEALTH,
-            isPlayer: false,
-            lastShotTime: 0,
-            isBoss: true,
-        };
+    const spawnBoss = useCallback((waveNumber: number) => {
+        let boss: Tank;
+        if (waveNumber === FIRST_BOSS_WAVE_NUMBER) {
+            boss = {
+                id: 'boss-wave-6',
+                position: { x: GAME_WIDTH / 2, y: BOSS_SIZE },
+                size: BOSS_SIZE,
+                rotation: Math.PI / 2,
+                turretRotation: Math.PI / 2,
+                health: BOSS_MAX_HEALTH,
+                isPlayer: false,
+                lastShotTime: 0,
+                isBoss: true,
+            };
+        } else if (waveNumber === SECOND_BOSS_WAVE_NUMBER) {
+            boss = {
+                id: 'boss-wave-12',
+                position: { x: GAME_WIDTH / 2, y: SECOND_BOSS_SIZE },
+                size: SECOND_BOSS_SIZE,
+                rotation: Math.PI / 2,
+                turretRotation: Math.PI / 2,
+                health: SECOND_BOSS_MAX_HEALTH,
+                isPlayer: false,
+                lastShotTime: 0,
+                isBoss: true,
+            };
+        } else {
+            return;
+        }
         setEnemies([boss]);
     }, []);
 
@@ -274,8 +292,8 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score, isMob
             setWaveMessage(`Wave ${nextWave}`);
             setTimeout(() => {
                 setWaveMessage('');
-                if (nextWave === BOSS_WAVE_NUMBER) {
-                    spawnBoss();
+                if (nextWave === FIRST_BOSS_WAVE_NUMBER || nextWave === SECOND_BOSS_WAVE_NUMBER) {
+                    spawnBoss(nextWave);
                 } else {
                     spawnEnemies(nextWave + ENEMY_SPAWN_PER_WAVE - 1);
                 }
@@ -352,8 +370,11 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score, isMob
             const rotDiff = angleToPlayer - newRotation;
             const normalizedRotDiff = Math.atan2(Math.sin(rotDiff), Math.cos(rotDiff));
             
-            const speed = enemy.isBoss ? BOSS_SPEED : ENEMY_SPEED;
-            const turnSpeed = enemy.isBoss ? BOSS_TURN_SPEED : ENEMY_TURN_SPEED;
+            const isFirstBoss = enemy.id === 'boss-wave-6';
+            const isSecondBoss = enemy.id === 'boss-wave-12';
+
+            const speed = isFirstBoss ? BOSS_SPEED : isSecondBoss ? SECOND_BOSS_SPEED : ENEMY_SPEED;
+            const turnSpeed = isFirstBoss ? BOSS_TURN_SPEED : isSecondBoss ? SECOND_BOSS_TURN_SPEED : ENEMY_TURN_SPEED;
             
             let isStuck = false;
             let newPos = { ...enemy.position };
@@ -382,7 +403,7 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score, isMob
                 }
             }
 
-            const fireRate = enemy.isBoss ? BOSS_FIRE_RATE : ENEMY_FIRE_RATE;
+            const fireRate = isFirstBoss ? BOSS_FIRE_RATE : isSecondBoss ? SECOND_BOSS_FIRE_RATE : ENEMY_FIRE_RATE;
             if (now - enemy.lastShotTime > fireRate) {
                 let hasLineOfSight = true;
                 const dx = player.position.x - enemy.position.x;
@@ -404,13 +425,15 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score, isMob
                 
                 if (hasLineOfSight) {
                     playSound('shoot', 0.2);
-                    if (enemy.isBoss) {
+                    if (isFirstBoss) {
                         const totalAngle = BOSS_SPREAD_ANGLE;
                         const angleStep = totalAngle / (BOSS_SPREAD_SHOT_COUNT - 1);
                         const startAngle = angleToPlayer - totalAngle / 2;
                         for (let i = 0; i < BOSS_SPREAD_SHOT_COUNT; i++) {
                             fireProjectile(enemy, startAngle + i * angleStep);
                         }
+                    } else if (isSecondBoss) {
+                        fireProjectile({ ...enemy, turretRotation: angleToPlayer });
                     } else {
                         fireProjectile({ ...enemy, turretRotation: angleToPlayer });
                     }
@@ -495,7 +518,7 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score, isMob
                                 if(e.id === tank.id){
                                     const newHealth = e.health - proj.damage;
                                     if(newHealth <= 0){
-                                        const scoreIncrease = tank.isBoss ? 1000 : 100;
+                                        const scoreIncrease = tank.id === 'boss-wave-12' ? 2500 : tank.isBoss ? 1000 : 100;
                                         setScore(s => s + scoreIncrease);
                                         createParticleExplosion(e.position, tank.isBoss ? 200 : 50, true);
                                         if (Math.random() < POWERUP_SPAWN_CHANCE && !tank.isBoss) {
@@ -556,8 +579,9 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score, isMob
         })).filter(p => p.lifespan > 0));
 
         // 6. Boss Wave Power-up Spawning
+        const isBossWave = wave === FIRST_BOSS_WAVE_NUMBER || wave === SECOND_BOSS_WAVE_NUMBER;
         const isBossOnField = enemies.some(e => e.isBoss);
-        if (wave === BOSS_WAVE_NUMBER && isBossOnField) {
+        if (isBossWave && isBossOnField) {
             if (lastBossPowerUpSpawnTime.current === 0) {
                 lastBossPowerUpSpawnTime.current = now; // Initialize timer when boss appears
             }
@@ -730,6 +754,11 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score, isMob
     }, []);
 
     const boss = enemies.find(e => e.isBoss);
+    const getBossName = (bossId?: string) => {
+        if (bossId === 'boss-wave-6') return "Gartz the Destroyer";
+        if (bossId === 'boss-wave-12') return "Gio the Molester";
+        return undefined;
+    }
 
     return (
         <div
@@ -749,7 +778,8 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score, isMob
                 wave={wave}
                 waveMessage={waveMessage}
                 bossHealth={boss?.health}
-                bossMaxHealth={boss ? BOSS_MAX_HEALTH : undefined}
+                bossMaxHealth={boss ? (boss.id === 'boss-wave-12' ? SECOND_BOSS_MAX_HEALTH : BOSS_MAX_HEALTH) : undefined}
+                bossName={getBossName(boss?.id)}
             />
 
             {obstacles.map(obs => (
@@ -773,8 +803,11 @@ export const Game: React.FC<GameProps> = ({ setGameState, setScore, score, isMob
 
             {enemies.map(enemy => (
                 <div key={enemy.id} className="absolute" style={{ top: enemy.position.y - enemy.size / 2, left: enemy.position.x - enemy.size / 2 }}>
-                     <HealthBar health={enemy.health} maxHealth={enemy.isBoss ? BOSS_MAX_HEALTH : ENEMY_MAX_HEALTH} size={enemy.size} isPlayer={false} />
-                     <TankIcon color={enemy.isBoss ? TANK_COLORS.bossBody : TANK_COLORS.enemyBody} turretColor={enemy.isBoss ? TANK_COLORS.bossTurret : TANK_COLORS.enemyTurret} size={enemy.size} bodyRotation={enemy.rotation} turretRotation={enemy.turretRotation} lastHitTime={enemy.lastHitTime} />
+                     <HealthBar health={enemy.health} maxHealth={enemy.id === 'boss-wave-12' ? SECOND_BOSS_MAX_HEALTH : enemy.isBoss ? BOSS_MAX_HEALTH : ENEMY_MAX_HEALTH} size={enemy.size} isPlayer={false} />
+                     <TankIcon 
+                        color={enemy.id === 'boss-wave-12' ? TANK_COLORS.secondBossBody : enemy.isBoss ? TANK_COLORS.bossBody : TANK_COLORS.enemyBody} 
+                        turretColor={enemy.id === 'boss-wave-12' ? TANK_COLORS.secondBossTurret : enemy.isBoss ? TANK_COLORS.bossTurret : TANK_COLORS.enemyTurret} 
+                        size={enemy.size} bodyRotation={enemy.rotation} turretRotation={enemy.turretRotation} lastHitTime={enemy.lastHitTime} />
                 </div>
             ))}
              {projectiles.map(proj => (

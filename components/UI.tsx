@@ -73,10 +73,18 @@ interface HUDProps {
   waveMessage: string;
   bossHealth?: number;
   bossMaxHealth?: number;
+  bossName?: string;
 }
 
-export const HUD: React.FC<HUDProps> = ({ score, health, maxHealth, wave, waveMessage, bossHealth, bossMaxHealth }) => {
+export const HUD: React.FC<HUDProps> = ({ score, health, maxHealth, wave, waveMessage, bossHealth, bossMaxHealth, bossName }) => {
   const healthPercentage = (health / maxHealth) * 100;
+
+  const isSecondBoss = bossName === "Gio the Molester";
+  const bossNameColor = isSecondBoss ? 'text-violet-400' : 'text-purple-400';
+  const bossShadowColor = isSecondBoss ? '#a78bfa' : '#8b5cf6';
+  const bossBarGradient = isSecondBoss 
+      ? 'from-violet-500 to-violet-700' 
+      : 'from-purple-500 to-purple-700';
 
   return (
     <>
@@ -88,14 +96,14 @@ export const HUD: React.FC<HUDProps> = ({ score, health, maxHealth, wave, waveMe
       </div>
 
       {/* Boss UI */}
-      {bossHealth && bossMaxHealth && bossHealth > 0 && (
+      {bossHealth && bossMaxHealth && bossHealth > 0 && bossName && (
           <div className="absolute top-12 left-1/2 -translate-x-1/2 w-2/3 flex flex-col items-center z-20">
-              <h3 className="text-3xl font-black text-purple-400 uppercase tracking-widest" style={{ textShadow: '0 0 10px #8b5cf6' }}>
-                  Gartz the Destroyer
+              <h3 className={`text-3xl font-black ${bossNameColor} uppercase tracking-widest`} style={{ textShadow: `0 0 10px ${bossShadowColor}` }}>
+                  {bossName}
               </h3>
               <div className="w-full bg-gray-900 rounded-full h-5 border-2 border-purple-800 mt-2 shadow-lg">
                   <div
-                      className="bg-gradient-to-r from-purple-500 to-purple-700 h-full rounded-full transition-all duration-300 ease-out"
+                      className={`bg-gradient-to-r ${bossBarGradient} h-full rounded-full transition-all duration-300 ease-out`}
                       style={{ width: `${(bossHealth / bossMaxHealth) * 100}%` }}
                   ></div>
               </div>
